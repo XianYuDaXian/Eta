@@ -47,6 +47,7 @@ internal object AgentPromptBuilder {
         }
         messages.put(
             systemMessage(
+                (if (roleplayContext == null) CodexOverlay.TEXT else "") +
                 (if (roleplayContext == null) {
                     ""
                 } else {

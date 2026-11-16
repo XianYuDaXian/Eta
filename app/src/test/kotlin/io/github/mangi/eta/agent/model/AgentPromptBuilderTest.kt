@@ -7,6 +7,8 @@ import io.github.mangi.eta.agent.skill.SkillContext
 import io.github.mangi.eta.agent.skill.SkillIndexEntry
 import io.github.mangi.eta.agent.device.RootAccessState
 import io.github.mangi.eta.agent.device.RootAccessStatus
+import io.github.mangi.eta.agent.roleplay.CharacterCardCodec
+import io.github.mangi.eta.agent.roleplay.RoleplayRunContext
 import org.json.JSONArray
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -262,6 +264,45 @@ class AgentPromptBuilderTest {
         assertTrue(memory.contains("revision=${"b".repeat(64)}"))
         assertTrue(memory.contains("用户以前偏好中文"))
         assertEquals("现在改用英文回答", messages.getJSONObject(messages.length() - 1).getString("content"))
+    }
+
+    @Test
+    fun codexOverlayIsInjectedOnceAndKeepsTheBuiltInPrompt() {
+        val messages = AgentPromptBuilder.buildSystemMessages(
+            config = modelConfig("自定义系统约束", terminalTools = false, browserTools = false),
+            skillContext = SkillContext.EMPTY,
+            memoryContext = AgentMemoryContext.DISABLED,
+            rootAvailable = false,
+        )
+        val contents = messages.systemContents()
+        assertEquals("自定义系统约束", contents.first())
+        assertEquals(1, contents.count { it.contains(CodexOverlay.MARKER) })
+        val prompt = contents.single { it.contains(CodexOverlay.MARKER) }
+        assertTrue(prompt.contains("Every visible assistant reply begins with `[P]`"))
+        assertTrue(prompt.contains("Task routing"))
+        assertTrue(prompt.contains("Prescriptive templates"))
+        assertTrue(prompt.contains("CONTINUATION"))
+        assertTrue(prompt.contains("当前配置的模型"))
+    }
+
+    @Test
+    fun codexOverlayIsNotInjectedIntoRoleplay() {
+        val roleplay = RoleplayRunContext(
+            "fixture",
+            CharacterCardCodec.decodeJson("""{"name":"林舟","description":"旅人"}"""),
+            "用户",
+            "",
+            contextWindow = 16_000,
+        )
+        val contents = AgentPromptBuilder.buildSystemMessages(
+            config = modelConfig("自定义系统约束", terminalTools = false, browserTools = false),
+            skillContext = SkillContext.EMPTY,
+            memoryContext = AgentMemoryContext.DISABLED,
+            rootAvailable = false,
+            roleplayContext = roleplay,
+        ).systemContents()
+        assertFalse(contents.any { it.contains(CodexOverlay.MARKER) })
+        assertTrue(contents.any { it.contains("当前配置的模型") })
     }
 
     private fun modelConfig(
