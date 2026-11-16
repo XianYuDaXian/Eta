@@ -1,5 +1,6 @@
 package io.github.mangi.eta.agent.model
 
+import io.github.mangi.eta.config.Prefs
 import io.github.mangi.eta.agent.memory.AgentMemoryContext
 import io.github.mangi.eta.agent.skill.SkillContext
 import io.github.mangi.eta.agent.roleplay.RoleplayRunContext
@@ -47,7 +48,8 @@ internal object AgentPromptBuilder {
         }
         messages.put(
             systemMessage(
-                (if (roleplayContext == null) CodexOverlay.TEXT else "") +
+                (if (roleplayContext == null &&
+                    Prefs.isEnabled(Prefs.Keys.AGENT_CODEX_OVERLAY_ENABLED)) CodexOverlay.TEXT else "") +
                 (if (roleplayContext == null) {
                     ""
                 } else {

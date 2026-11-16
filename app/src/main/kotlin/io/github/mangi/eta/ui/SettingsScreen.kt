@@ -508,6 +508,15 @@ private fun SettingsPageContent(
                         iconTint = SettingsIconColors.Blue,
                     )
                     CouiIconDivider()
+                    SwitchPref(
+                        context = context,
+                        prefs = agentPrefs,
+                        title = "Codex 交付叠加层",
+                        key = Prefs.Keys.AGENT_CODEX_OVERLAY_ENABLED,
+                        icon = Icons.Rounded.Tune,
+                        iconTint = SettingsIconColors.Blue,
+                    )
+                    CouiIconDivider()
                     CouiPreference(
                         title = stringResource(R.string.conversation_title_settings_title),
                         icon = { CouiSettingsIcon(Icons.Rounded.AutoAwesome, SettingsIconColors.Blue) },
@@ -972,6 +981,15 @@ private fun SettingsPageContent(
                             title = stringResource(R.string.settings_auto_compaction),
                             key = Prefs.Keys.AGENT_AUTO_COMPACTION_ENABLED,
                             icon = Icons.Rounded.Layers,
+                            iconTint = SettingsIconColors.Blue,
+                        )
+                        CouiIconDivider()
+                        SwitchPref(
+                            context = context,
+                            prefs = agentPrefs,
+                            title = "Codex 交付叠加层",
+                            key = Prefs.Keys.AGENT_CODEX_OVERLAY_ENABLED,
+                            icon = Icons.Rounded.Tune,
                             iconTint = SettingsIconColors.Blue,
                         )
                         ArrowPreference(
