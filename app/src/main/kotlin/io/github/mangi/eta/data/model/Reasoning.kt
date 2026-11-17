@@ -10,48 +10,61 @@ import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 
 @Serializable(with = ReasoningEffortSerializer::class)
-enum class ReasoningEffort(
+data class ReasoningEffort internal constructor(
     val wireValue: String,
-    val displayName: String,
-    internal val rank: Int,
+    val displayName: String = wireValue,
+    internal val rank: Int = CUSTOM_RANK,
 ) {
-    @SerialName("off")
-    OFF("off", "Off", 0),
-
-    @SerialName("default")
-    DEFAULT("default", "Default", 1),
-
-    @SerialName("minimal")
-    MINIMAL("minimal", "Minimal", 2),
-
-    @SerialName("low")
-    LOW("low", "Low", 3),
-
-    @SerialName("medium")
-    MEDIUM("medium", "Medium", 4),
-
-    @SerialName("high")
-    HIGH("high", "High", 5),
-
-    @SerialName("xhigh")
-    XHIGH("xhigh", "XHigh", 6),
-
-    @SerialName("max")
-    MAX("max", "Max", 7),
-    ;
+    /** 是否为用户新增的原始值，而非内置强度。 */
+    val isCustom: Boolean
+        get() = wireValue !in knownByWireValue
 
     val enablesReasoning: Boolean
-        get() = this != OFF
+        get() = wireValue != OFF.wireValue
 
     companion object {
-        fun fromWireValue(value: String?): ReasoningEffort? {
-            val normalized = value?.trim()?.lowercase().orEmpty()
-            return entries.firstOrNull { it.wireValue == normalized }
-                ?: when (normalized) {
-                    "none" -> OFF
-                    "x-high", "extra_high", "extra-high" -> XHIGH
-                    else -> null
-                }
+        internal const val CUSTOM_RANK = 8
+
+        val OFF = ReasoningEffort("off", "Off", 0)
+        val DEFAULT = ReasoningEffort("default", "Default", 1)
+        val MINIMAL = ReasoningEffort("minimal", "Minimal", 2)
+        val LOW = ReasoningEffort("low", "Low", 3)
+        val MEDIUM = ReasoningEffort("medium", "Medium", 4)
+        val HIGH = ReasoningEffort("high", "High", 5)
+        val XHIGH = ReasoningEffort("xhigh", "XHigh", 6)
+        val MAX = ReasoningEffort("max", "Max", 7)
+
+        val knownValues: List<ReasoningEffort> = listOf(
+            OFF,
+            DEFAULT,
+            MINIMAL,
+            LOW,
+            MEDIUM,
+            HIGH,
+            XHIGH,
+            MAX,
+        )
+
+        private val knownByWireValue: Map<String, ReasoningEffort> =
+            knownValues.associateBy { it.wireValue }
+
+        private val aliases: Map<String, String> = mapOf(
+            "none" to OFF.wireValue,
+            "x-high" to XHIGH.wireValue,
+            "extra_high" to XHIGH.wireValue,
+            "extra-high" to XHIGH.wireValue,
+        )
+
+        /**
+         * 解析持久化字符串。严格模式只接受内置值；宽松模式保留自定义值的原始拼写。
+         */
+        fun fromWireValue(value: String?, allowCustom: Boolean = true): ReasoningEffort? {
+            val raw = value?.trim().orEmpty()
+            if (raw.isEmpty()) return null
+            val normalized = raw.lowercase()
+            val canonical = knownByWireValue[normalized]?.wireValue ?: aliases[normalized]
+            if (canonical != null) return knownByWireValue[canonical]
+            return if (allowCustom) ReasoningEffort(raw) else null
         }
 
         fun fromLegacy(thinkingEnabled: Boolean): ReasoningEffort =
@@ -68,7 +81,7 @@ object ReasoningEffortSerializer : KSerializer<ReasoningEffort> {
     }
 
     override fun deserialize(decoder: Decoder): ReasoningEffort =
-        ReasoningEffort.fromWireValue(decoder.decodeString()) ?: ReasoningEffort.DEFAULT
+        ReasoningEffort.fromWireValue(decoder.decodeString(), allowCustom = true) ?: ReasoningEffort.DEFAULT
 }
 
 @Serializable
@@ -92,16 +105,19 @@ data class ModelReasoningCapabilities(
                 .distinct()
                 .sortedBy(ReasoningEffort::rank)
                 .forEach(::add)
+        }.let { base ->
+            io.github.mangi.eta.config.CustomReasoningEfforts.withSavedPlacement(base)
         }
 
     fun normalize(requested: ReasoningEffort): ReasoningEffort {
         val selectable = selectableEfforts
         if (requested in selectable) return requested
+        if (requested.isCustom) return ReasoningEffort.DEFAULT
         if (requested == ReasoningEffort.OFF || requested == ReasoningEffort.DEFAULT) {
             return ReasoningEffort.DEFAULT
         }
         return selectable
-            .filter { it != ReasoningEffort.OFF && it.rank <= requested.rank }
+            .filter { !it.isCustom && it != ReasoningEffort.OFF && it.rank <= requested.rank }
             .maxByOrNull(ReasoningEffort::rank)
             ?: ReasoningEffort.DEFAULT
     }

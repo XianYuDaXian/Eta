@@ -50,6 +50,8 @@ internal object Prefs {
         const val AGENT_DEVICE_SENSITIVE_ACTION_TOOLS = "agent_device_sensitive_action_tools"
         const val AGENT_THINKING_ENABLED = "agent_thinking_enabled"
         const val AGENT_DEFAULT_REASONING_EFFORT = "agent_default_reasoning_effort"
+        const val AGENT_CUSTOM_REASONING_EFFORTS = "agent_custom_reasoning_efforts"
+        const val AGENT_CUSTOM_REASONING_EFFORT_POSITION = "agent_custom_reasoning_effort_position"
         const val AGENT_AUTO_COMPACTION_ENABLED = "agent_auto_compaction_enabled"
         const val AGENT_SUBAGENT_ENABLED = "agent_subagent_enabled"
         const val AGENT_CODEX_OVERLAY_ENABLED = "agent_codex_overlay_enabled"
@@ -148,8 +150,64 @@ internal object Prefs {
         val raw = runCatching {
             preferences?.getString(Keys.AGENT_DEFAULT_REASONING_EFFORT, null)
         }.getOrNull()
-        val parsed = ReasoningEffort.fromWireValue(raw)
+        val parsed = ReasoningEffort.fromWireValue(raw, allowCustom = false)
         return if (parsed != null && parsed != ReasoningEffort.OFF) parsed else ReasoningEffort.DEFAULT
+    }
+
+    /** 读取用户新增的推理强度，保留输入顺序和原始拼写。 */
+    fun customReasoningEfforts(
+        preferences: SharedPreferences? = localAgent ?: remote,
+    ): List<ReasoningEffort> {
+        val raw = runCatching {
+            preferences?.getString(Keys.AGENT_CUSTOM_REASONING_EFFORTS, "[]")
+        }.getOrNull().orEmpty()
+        val values = runCatching { JSONArray(raw) }.getOrNull() ?: return emptyList()
+        return CustomReasoningEfforts.normalize(
+            buildList {
+                for (index in 0 until values.length()) {
+                    val item = values.optString(index)
+                    ReasoningEffort.fromWireValue(item, allowCustom = true)?.let(::add)
+                }
+            },
+        )
+    }
+
+    fun setCustomReasoningEfforts(
+        efforts: Collection<ReasoningEffort>,
+        preferences: SharedPreferences? = localAgent,
+    ): Boolean {
+        val target = preferences ?: return false
+        val encoded = JSONArray(CustomReasoningEfforts.normalize(efforts).map { it.wireValue }).toString()
+        return runCatching { target.edit().putString(Keys.AGENT_CUSTOM_REASONING_EFFORTS, encoded).commit() }
+            .getOrDefault(false)
+    }
+
+    fun customReasoningEffortPosition(
+        preferences: SharedPreferences? = localAgent ?: remote,
+    ): String {
+        val value = runCatching {
+            preferences?.getString(Keys.AGENT_CUSTOM_REASONING_EFFORT_POSITION, null)
+        }.getOrNull()
+        return if (value == CustomReasoningEfforts.POSITION_FIRST) {
+            CustomReasoningEfforts.POSITION_FIRST
+        } else {
+            CustomReasoningEfforts.POSITION_LAST
+        }
+    }
+
+    fun setCustomReasoningEffortPosition(
+        position: String,
+        preferences: SharedPreferences? = localAgent,
+    ): Boolean {
+        val target = preferences ?: return false
+        val normalized = if (position == CustomReasoningEfforts.POSITION_FIRST) {
+            CustomReasoningEfforts.POSITION_FIRST
+        } else {
+            CustomReasoningEfforts.POSITION_LAST
+        }
+        return runCatching {
+            target.edit().putString(Keys.AGENT_CUSTOM_REASONING_EFFORT_POSITION, normalized).commit()
+        }.getOrDefault(false)
     }
 
     fun powerAssistantTarget(): PowerAssistantTarget = powerAssistantTarget(remote)
@@ -203,6 +261,34 @@ internal object Prefs {
             }
         }
         when {
+            local.contains(Keys.AGENT_CUSTOM_REASONING_EFFORTS) -> {
+                remoteEditor.putString(
+                    Keys.AGENT_CUSTOM_REASONING_EFFORTS,
+                    local.getString(Keys.AGENT_CUSTOM_REASONING_EFFORTS, "[]"),
+                )
+                updateRemote = true
+            }
+            remotePreferences.contains(Keys.AGENT_CUSTOM_REASONING_EFFORTS) -> {
+                localEditor.putString(
+                    Keys.AGENT_CUSTOM_REASONING_EFFORTS,
+                    remotePreferences.getString(Keys.AGENT_CUSTOM_REASONING_EFFORTS, "[]"),
+                )
+                updateLocal = true
+            }
+            local.contains(Keys.AGENT_CUSTOM_REASONING_EFFORT_POSITION) -> {
+                remoteEditor.putString(
+                    Keys.AGENT_CUSTOM_REASONING_EFFORT_POSITION,
+                    local.getString(Keys.AGENT_CUSTOM_REASONING_EFFORT_POSITION, CustomReasoningEfforts.POSITION_LAST),
+                )
+                updateRemote = true
+            }
+            remotePreferences.contains(Keys.AGENT_CUSTOM_REASONING_EFFORT_POSITION) -> {
+                localEditor.putString(
+                    Keys.AGENT_CUSTOM_REASONING_EFFORT_POSITION,
+                    remotePreferences.getString(Keys.AGENT_CUSTOM_REASONING_EFFORT_POSITION, CustomReasoningEfforts.POSITION_LAST),
+                )
+                updateLocal = true
+            }
             local.contains(Keys.AGENT_DISABLED_TOOLS_JSON) -> {
                 remoteEditor.putString(
                     Keys.AGENT_DISABLED_TOOLS_JSON,

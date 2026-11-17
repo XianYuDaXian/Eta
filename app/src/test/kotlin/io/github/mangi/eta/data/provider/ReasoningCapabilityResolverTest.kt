@@ -13,7 +13,7 @@ class ReasoningCapabilityResolverTest {
     fun userFacingEffortLabelsAreStableEnglishValues() {
         assertEquals(
             listOf("Off", "Default", "Minimal", "Low", "Medium", "High", "XHigh", "Max"),
-            ReasoningEffort.entries.map(ReasoningEffort::displayName),
+            ReasoningEffort.knownValues.map(ReasoningEffort::displayName),
         )
     }
 

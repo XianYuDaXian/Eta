@@ -402,6 +402,44 @@ class ProviderReasoningTest {
         }
     }
 
+    @Test
+    fun customEffortIsSentVerbatim() {
+        val effort = ReasoningEffort("Ultra-High")
+        val capabilities = ModelReasoningCapabilities(
+            supportedEfforts = listOf(effort),
+            mandatory = true,
+        )
+        val request = JSONObject()
+
+        ProviderReasoning.applyResponsesRequest(
+            request,
+            config(source = ProviderSourceTypes.OPENAI, effort = effort)
+                .copy(reasoningCapabilities = capabilities),
+        )
+
+        assertEquals("Ultra-High", request.getJSONObject("reasoning").getString("effort"))
+    }
+
+    @Test
+    fun budgetProviderRejectsCustomEffort() {
+        val effort = ReasoningEffort("deep-think")
+        val config = config(
+            source = ProviderSourceTypes.BAILIAN,
+            model = "qwen3.7-flash",
+            effort = effort,
+        ).copy(
+            reasoningCapabilities = ModelReasoningCapabilities(
+                supportedEfforts = listOf(effort),
+                mandatory = true,
+                supportsBudget = true,
+            ),
+        )
+
+        assertThrows(IllegalArgumentException::class.java) {
+            ProviderReasoning.applyOpenAiCompatibleRequest(JSONObject(), config)
+        }
+    }
+
     private fun config(
         source: String,
         effort: ReasoningEffort,
@@ -415,7 +453,7 @@ class ProviderReasoningTest {
         thinkingEnabled = effort.enablesReasoning,
         reasoningEffort = effort,
         reasoningCapabilities = ModelReasoningCapabilities(
-            supportedEfforts = ReasoningEffort.entries.filter {
+            supportedEfforts = ReasoningEffort.knownValues.filter {
                 it != ReasoningEffort.OFF && it != ReasoningEffort.DEFAULT
             },
             canDisable = true,

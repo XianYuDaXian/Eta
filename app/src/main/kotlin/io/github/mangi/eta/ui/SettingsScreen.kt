@@ -1,12 +1,16 @@
 package io.github.mangi.eta.ui
 
+import android.app.AlertDialog
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.net.Uri
 import android.provider.Settings
+import android.view.ViewGroup
 import android.widget.Toast
+import android.widget.EditText
+import android.widget.LinearLayout
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -78,6 +82,7 @@ import io.github.mangi.eta.agent.accessibility.AccessibilityProtectionClient
 import io.github.mangi.eta.agent.accessibility.AgentAccessibilityService
 import io.github.mangi.eta.config.PowerAssistantTarget
 import io.github.mangi.eta.config.Prefs
+import io.github.mangi.eta.config.CustomReasoningEfforts
 import io.github.mangi.eta.data.model.AppearanceUiStyle
 import io.github.mangi.eta.data.model.ReasoningEffort
 import io.github.mangi.eta.data.model.enabledModel
@@ -515,6 +520,17 @@ private fun SettingsPageContent(
                         key = Prefs.Keys.AGENT_CODEX_OVERLAY_ENABLED,
                         icon = Icons.Rounded.Tune,
                         iconTint = SettingsIconColors.Blue,
+                    )
+                    CouiIconDivider()
+                    CouiPreference(
+                        title = "自定义推理强度",
+                        summary = "新增非标准强度，并同步到每个模型的候选列表",
+                        icon = { CouiSettingsIcon(Icons.Rounded.Psychology, SettingsIconColors.Blue) },
+                        onClick = {
+                            showCustomReasoningEffortDialog(context, agentPrefs) {
+                                savedDefaultEffort = Prefs.defaultReasoningEffort(agentPrefs)
+                            }
+                        },
                     )
                     CouiIconDivider()
                     CouiPreference(
@@ -991,6 +1007,21 @@ private fun SettingsPageContent(
                             key = Prefs.Keys.AGENT_CODEX_OVERLAY_ENABLED,
                             icon = Icons.Rounded.Tune,
                             iconTint = SettingsIconColors.Blue,
+                        )
+                        ArrowPreference(
+                            title = "自定义推理强度",
+                            summary = "新增非标准强度，并同步到每个模型的候选列表",
+                            startAction = {
+                                SettingsIcon(
+                                    icon = Icons.Rounded.Psychology,
+                                    tint = SettingsIconColors.Blue,
+                                )
+                            },
+                            onClick = {
+                                showCustomReasoningEffortDialog(context, agentPrefs) {
+                                    savedDefaultEffort = Prefs.defaultReasoningEffort(agentPrefs)
+                                }
+                            },
                         )
                         ArrowPreference(
                             title = stringResource(R.string.conversation_title_settings_title),
@@ -1622,6 +1653,105 @@ private fun SwitchPref(
             )
         }
     }
+}
+
+/** 管理自定义推理强度：新增、删除以及在候选列表中的位置。 */
+private fun showCustomReasoningEffortDialog(
+    context: Context,
+    prefs: SharedPreferences?,
+    onChanged: () -> Unit,
+) {
+    if (prefs == null) {
+        Toast.makeText(context, "配置尚未就绪", Toast.LENGTH_SHORT).show()
+        return
+    }
+
+    fun showManager() {
+        val values = Prefs.customReasoningEfforts(prefs)
+        val positionLabel = if (Prefs.customReasoningEffortPosition(prefs) == CustomReasoningEfforts.POSITION_FIRST) {
+            "当前位置：最前"
+        } else {
+            "当前位置：最后"
+        }
+        val items = arrayOf<CharSequence>("新增", "删除", "切换到放最前 / 放最后", positionLabel, "关闭")
+        AlertDialog.Builder(context)
+            .setTitle("自定义推理强度")
+            .setMessage(if (values.isEmpty()) "还没有自定义强度。$positionLabel" else values.joinToString(" · ") { it.wireValue })
+            .setItems(items) { _, index ->
+                when (index) {
+                    0 -> {
+                        val input = EditText(context).apply {
+                            layoutParams = LinearLayout.LayoutParams(
+                                ViewGroup.LayoutParams.MATCH_PARENT,
+                                ViewGroup.LayoutParams.WRAP_CONTENT,
+                            )
+                            hint = "例如 ultra-high"
+                            singleLine = true
+                        }
+                        AlertDialog.Builder(context)
+                            .setTitle("新增推理强度")
+                            .setView(input)
+                            .setNegativeButton("取消", null)
+                            .setPositiveButton("新增") { _, _ ->
+                                val raw = input.text?.toString().orEmpty().trim()
+                                val effort = ReasoningEffort.fromWireValue(raw, allowCustom = true)
+                                if (raw.isEmpty() || effort == null || !effort.isCustom) {
+                                    Toast.makeText(context, "请输入非内置的强度值", Toast.LENGTH_SHORT).show()
+                                    return@setPositiveButton
+                                }
+                                if (effort.wireValue in values.map { it.wireValue }) {
+                                    Toast.makeText(context, "该强度已存在", Toast.LENGTH_SHORT).show()
+                                    return@setPositiveButton
+                                }
+                                val updated = values + effort
+                                if (!Prefs.setCustomReasoningEfforts(updated, prefs)) {
+                                    Toast.makeText(context, "保存失败", Toast.LENGTH_SHORT).show()
+                                    return@setPositiveButton
+                                }
+                                onChanged()
+                                showManager()
+                            }
+                            .show()
+                    }
+                    1 -> {
+                        if (values.isEmpty()) {
+                            Toast.makeText(context, "没有可删除的强度", Toast.LENGTH_SHORT).show()
+                            return@setItems
+                        }
+                        AlertDialog.Builder(context)
+                            .setTitle("删除推理强度")
+                            .setItems(values.map { it.wireValue as CharSequence }.toTypedArray()) { _, which ->
+                                val updated = values.filterIndexed { index, _ -> index != which }
+                                if (!Prefs.setCustomReasoningEfforts(updated, prefs)) {
+                                    Toast.makeText(context, "保存失败", Toast.LENGTH_SHORT).show()
+                                    return@setItems
+                                }
+                                onChanged()
+                                showManager()
+                            }
+                            .setNegativeButton("取消", null)
+                            .show()
+                    }
+                    2 -> {
+                        val next = if (Prefs.customReasoningEffortPosition(prefs) == CustomReasoningEfforts.POSITION_FIRST) {
+                            CustomReasoningEfforts.POSITION_LAST
+                        } else {
+                            CustomReasoningEfforts.POSITION_FIRST
+                        }
+                        if (!Prefs.setCustomReasoningEffortPosition(next, prefs)) {
+                            Toast.makeText(context, "保存失败", Toast.LENGTH_SHORT).show()
+                            return@setItems
+                        }
+                        onChanged()
+                        showManager()
+                    }
+                    else -> Unit
+                }
+            }
+            .show()
+    }
+
+    showManager()
 }
 
 private fun putBooleanSync(

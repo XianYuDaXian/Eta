@@ -154,6 +154,7 @@ internal object ProviderReasoning {
             ReasoningEffort.MAX -> config.reasoningCapabilities?.maxBudgetTokens ?: 65_536
             ReasoningEffort.OFF,
             ReasoningEffort.DEFAULT -> return
+            else -> unsupportedEffort("百炼 Qwen", effort)
         }
         request.put("enable_thinking", true)
         request.put("thinking_budget", clampBudgetToCompletionLimit(request, requestedBudget))
@@ -188,6 +189,7 @@ internal object ProviderReasoning {
             ReasoningEffort.MAX -> 32_768
             ReasoningEffort.OFF,
             ReasoningEffort.DEFAULT -> return
+            else -> unsupportedEffort("SiliconFlow", effort)
         }.coerceAtMost(config.reasoningCapabilities?.maxBudgetTokens ?: 32_768)
         if (config.reasoningCapabilities?.canDisable == true) {
             request.put("enable_thinking", true)
@@ -207,6 +209,7 @@ internal object ProviderReasoning {
                 ReasoningEffort.MAX -> ReasoningEffort.MAX
                 ReasoningEffort.DEFAULT,
                 ReasoningEffort.OFF -> return
+                else -> effort
             }
             request.put("reasoning_effort", providerEffort.wireValue)
         } else {

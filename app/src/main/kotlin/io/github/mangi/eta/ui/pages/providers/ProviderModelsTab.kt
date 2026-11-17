@@ -134,7 +134,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 
-private val editableReasoningEfforts = listOf(
+private val builtInReasoningEfforts = listOf(
     ReasoningEffort.OFF,
     ReasoningEffort.MINIMAL,
     ReasoningEffort.LOW,
@@ -143,6 +143,9 @@ private val editableReasoningEfforts = listOf(
     ReasoningEffort.XHIGH,
     ReasoningEffort.MAX,
 )
+
+private fun editableReasoningEfforts(): List<ReasoningEffort> =
+    io.github.mangi.eta.config.CustomReasoningEfforts.withSavedPlacement(builtInReasoningEfforts)
 
 /**
  * 常见上下文窗口档位。取十进制整数：标称 262,144、1,048,576 的模型按 256K、1M 填写只会略早压缩，
@@ -934,7 +937,11 @@ private fun ModelEditDialog(
     val context = LocalContext.current
     val initialCapabilities = if (nativeGemini) GeminiModelCapabilities.resolveReasoning(model)
         else model.effectiveReasoningCapabilities
-    val availableEfforts = if (nativeGemini) GeminiModelCapabilities.configurableEfforts else editableReasoningEfforts
+    val availableEfforts = if (nativeGemini) {
+        GeminiModelCapabilities.configurableEfforts
+    } else {
+        editableReasoningEfforts()
+    }
     var displayName by remember(model.id, isNew) { mutableStateOf(model.displayName) }
     var modelId by remember(model.id, isNew) { mutableStateOf(model.modelId) }
     var contextWindowOverrideText by remember(model.id, isNew) {
