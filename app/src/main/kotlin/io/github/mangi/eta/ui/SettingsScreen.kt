@@ -1666,6 +1666,8 @@ private fun showCustomReasoningEffortDialog(
         return
     }
 
+    var showManagerRef: (() -> Unit)? = null
+
     fun saveAndRefresh(values: List<ReasoningEffort>) {
         if (!Prefs.setCustomReasoningEfforts(values, prefs)) {
             Toast.makeText(context, "保存失败", Toast.LENGTH_SHORT).show()
@@ -1700,7 +1702,7 @@ private fun showCustomReasoningEffortDialog(
                     return@setPositiveButton
                 }
                 saveAndRefresh(values + effort)
-                showManager()
+                showManagerRef?.invoke()
             }
             .show()
     }
@@ -1715,12 +1717,12 @@ private fun showCustomReasoningEffortDialog(
             .setMessage(values.joinToString("\n") { it.wireValue })
             .setPositiveButton("删除全部") { _, _ ->
                 saveAndRefresh(emptyList())
-                showManager()
+                showManagerRef?.invoke()
             }
             .setNeutralButton("删除第一个") { _, _ ->
                 val updated = values.drop(1)
                 saveAndRefresh(updated)
-                if (updated.isEmpty()) showManager() else showDelete(updated)
+                if (updated.isEmpty()) showManagerRef?.invoke() else showDelete(updated)
             }
             .setNegativeButton("取消", null)
             .show()
@@ -1738,7 +1740,7 @@ private fun showCustomReasoningEffortDialog(
         }
         Prefs.reconcileAgentPreferences(EtaApp.serviceInstance)
         onChanged()
-        showManager()
+        showManagerRef?.invoke()
     }
 
     fun showManager() {
@@ -1765,6 +1767,7 @@ private fun showCustomReasoningEffortDialog(
             .show()
     }
 
+    showManagerRef = { showManager() }
     showManager()
 }
 
