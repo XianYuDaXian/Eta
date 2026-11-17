@@ -1686,7 +1686,7 @@ private fun showCustomReasoningEffortDialog(
                                 ViewGroup.LayoutParams.WRAP_CONTENT,
                             )
                             hint = "例如 ultra-high"
-                            singleLine = true
+                            setSingleLine(true)
                         }
                         AlertDialog.Builder(context)
                             .setTitle("新增推理强度")
