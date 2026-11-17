@@ -1666,6 +1666,81 @@ private fun showCustomReasoningEffortDialog(
         return
     }
 
+    fun saveAndRefresh(values: List<ReasoningEffort>) {
+        if (!Prefs.setCustomReasoningEfforts(values, prefs)) {
+            Toast.makeText(context, "保存失败", Toast.LENGTH_SHORT).show()
+            return
+        }
+        Prefs.reconcileAgentPreferences(EtaApp.serviceInstance)
+        onChanged()
+    }
+
+    fun showAdd(values: List<ReasoningEffort>) {
+        val input = EditText(context).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+            )
+            hint = "例如 ultra-high"
+            setSingleLine(true)
+        }
+        AlertDialog.Builder(context)
+            .setTitle("新增推理强度")
+            .setView(input)
+            .setNegativeButton("取消", null)
+            .setPositiveButton("新增") { _, _ ->
+                val raw = input.text?.toString().orEmpty().trim()
+                val effort = ReasoningEffort.fromWireValue(raw, allowCustom = true)
+                if (raw.isEmpty() || effort == null || !effort.isCustom) {
+                    Toast.makeText(context, "请输入非内置的强度值", Toast.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+                if (effort.wireValue in values.map { it.wireValue }) {
+                    Toast.makeText(context, "该强度已存在", Toast.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+                saveAndRefresh(values + effort)
+                showManager()
+            }
+            .show()
+    }
+
+    fun showDelete(values: List<ReasoningEffort>) {
+        if (values.isEmpty()) {
+            Toast.makeText(context, "没有可删除的强度", Toast.LENGTH_SHORT).show()
+            return
+        }
+        AlertDialog.Builder(context)
+            .setTitle("删除推理强度")
+            .setMessage(values.joinToString("\n") { it.wireValue })
+            .setPositiveButton("删除全部") { _, _ ->
+                saveAndRefresh(emptyList())
+                showManager()
+            }
+            .setNeutralButton("删除第一个") { _, _ ->
+                val updated = values.drop(1)
+                saveAndRefresh(updated)
+                if (updated.isEmpty()) showManager() else showDelete(updated)
+            }
+            .setNegativeButton("取消", null)
+            .show()
+    }
+
+    fun togglePosition() {
+        val next = if (Prefs.customReasoningEffortPosition(prefs) == CustomReasoningEfforts.POSITION_FIRST) {
+            CustomReasoningEfforts.POSITION_LAST
+        } else {
+            CustomReasoningEfforts.POSITION_FIRST
+        }
+        if (!Prefs.setCustomReasoningEffortPosition(next, prefs)) {
+            Toast.makeText(context, "保存失败", Toast.LENGTH_SHORT).show()
+            return
+        }
+        Prefs.reconcileAgentPreferences(EtaApp.serviceInstance)
+        onChanged()
+        showManager()
+    }
+
     fun showManager() {
         val values = Prefs.customReasoningEfforts(prefs)
         val positionLabel = if (Prefs.customReasoningEffortPosition(prefs) == CustomReasoningEfforts.POSITION_FIRST) {
@@ -1673,83 +1748,19 @@ private fun showCustomReasoningEffortDialog(
         } else {
             "当前位置：最后"
         }
-        val items = arrayOf<CharSequence>("新增", "删除", "切换到放最前 / 放最后", positionLabel, "关闭")
         AlertDialog.Builder(context)
             .setTitle("自定义推理强度")
-            .setMessage(if (values.isEmpty()) "还没有自定义强度。$positionLabel" else values.joinToString(" · ") { it.wireValue })
-            .setItems(items) { _, index ->
-                when (index) {
-                    0 -> {
-                        val input = EditText(context).apply {
-                            layoutParams = LinearLayout.LayoutParams(
-                                ViewGroup.LayoutParams.MATCH_PARENT,
-                                ViewGroup.LayoutParams.WRAP_CONTENT,
-                            )
-                            hint = "例如 ultra-high"
-                            setSingleLine(true)
-                        }
-                        AlertDialog.Builder(context)
-                            .setTitle("新增推理强度")
-                            .setView(input)
-                            .setNegativeButton("取消", null)
-                            .setPositiveButton("新增") { _, _ ->
-                                val raw = input.text?.toString().orEmpty().trim()
-                                val effort = ReasoningEffort.fromWireValue(raw, allowCustom = true)
-                                if (raw.isEmpty() || effort == null || !effort.isCustom) {
-                                    Toast.makeText(context, "请输入非内置的强度值", Toast.LENGTH_SHORT).show()
-                                    return@setPositiveButton
-                                }
-                                if (effort.wireValue in values.map { it.wireValue }) {
-                                    Toast.makeText(context, "该强度已存在", Toast.LENGTH_SHORT).show()
-                                    return@setPositiveButton
-                                }
-                                val updated = values + effort
-                                if (!Prefs.setCustomReasoningEfforts(updated, prefs)) {
-                                    Toast.makeText(context, "保存失败", Toast.LENGTH_SHORT).show()
-                                    return@setPositiveButton
-                                }
-                                Prefs.reconcileAgentPreferences(EtaApp.serviceInstance)
-                                onChanged()
-                                showManager()
-                            }
-                            .show()
-                    }
-                    1 -> {
-                        if (values.isEmpty()) {
-                            Toast.makeText(context, "没有可删除的强度", Toast.LENGTH_SHORT).show()
-                            return@setItems
-                        }
-                        AlertDialog.Builder(context)
-                            .setTitle("删除推理强度")
-                            .setItems(values.map { it.wireValue as CharSequence }.toTypedArray()) { _, which ->
-                                val updated = values.filterIndexed { index, _ -> index != which }
-                                if (!Prefs.setCustomReasoningEfforts(updated, prefs)) {
-                                    Toast.makeText(context, "保存失败", Toast.LENGTH_SHORT).show()
-                                    return@setItems
-                                }
-                                Prefs.reconcileAgentPreferences(EtaApp.serviceInstance)
-                                onChanged()
-                                showManager()
-                            }
-                            .setNegativeButton("取消", null)
-                            .show()
-                    }
-                    2 -> {
-                        val next = if (Prefs.customReasoningEffortPosition(prefs) == CustomReasoningEfforts.POSITION_FIRST) {
-                            CustomReasoningEfforts.POSITION_LAST
-                        } else {
-                            CustomReasoningEfforts.POSITION_FIRST
-                        }
-                        if (!Prefs.setCustomReasoningEffortPosition(next, prefs)) {
-                            Toast.makeText(context, "保存失败", Toast.LENGTH_SHORT).show()
-                            return@setItems
-                        }
-                        Prefs.reconcileAgentPreferences(EtaApp.serviceInstance)
-                        onChanged()
-                        showManager()
-                    }
-                    else -> Unit
-                }
+            .setMessage(
+                if (values.isEmpty()) {
+                    "还没有自定义强度。" + positionLabel
+                } else {
+                    values.joinToString(" · ") { it.wireValue } + "\n" + positionLabel
+                },
+            )
+            .setPositiveButton("新增") { _, _ -> showAdd(values) }
+            .setNeutralButton("切换位置") { _, _ -> togglePosition() }
+            .setNegativeButton(if (values.isEmpty()) "关闭" else "删除…") { _, _ ->
+                if (values.isNotEmpty()) showDelete(values)
             }
             .show()
     }
