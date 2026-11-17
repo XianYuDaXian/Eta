@@ -483,7 +483,7 @@ class AgentRuntimeWireTest {
     }
 
     @Test
-    fun unknownReasoningEffortJsonFallsBackToDefault() {
+    fun unknownReasoningEffortJsonKeepsCustomValue() {
         val config = Json.decodeFromString<AgentModelClient.ModelConfig>(
             """
             {
@@ -496,7 +496,7 @@ class AgentRuntimeWireTest {
             """.trimIndent()
         )
 
-        assertEquals(ReasoningEffort.DEFAULT, config.reasoningEffort)
+        assertEquals(ReasoningEffort("future"), config.reasoningEffort)
     }
 
     @Test

@@ -47,4 +47,17 @@ class CustomReasoningEffortsTest {
             merged,
         )
     }
+
+    @Test
+    fun orderExistingDoesNotAddUnselectedCustomValues() {
+        val ordered = CustomReasoningEfforts.orderExisting(
+            base = listOf(ReasoningEffort.OFF, ReasoningEffort("deep-think")),
+            position = CustomReasoningEfforts.POSITION_LAST,
+        )
+
+        assertEquals(
+            listOf(ReasoningEffort.OFF, ReasoningEffort("deep-think")),
+            ordered,
+        )
+    }
 }

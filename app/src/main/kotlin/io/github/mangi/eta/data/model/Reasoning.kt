@@ -106,7 +106,7 @@ data class ModelReasoningCapabilities(
                 .sortedBy(ReasoningEffort::rank)
                 .forEach(::add)
         }.let { base ->
-            io.github.mangi.eta.config.CustomReasoningEfforts.withSavedPlacement(base)
+            io.github.mangi.eta.config.CustomReasoningEfforts.orderExistingWithSavedPlacement(base)
         }
 
     fun normalize(requested: ReasoningEffort): ReasoningEffort {

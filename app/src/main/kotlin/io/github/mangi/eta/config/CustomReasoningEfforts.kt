@@ -24,6 +24,19 @@ internal object CustomReasoningEfforts {
         return if (position == POSITION_FIRST) cleanedCustom + cleanedBase else cleanedBase + cleanedCustom
     }
 
+    /** 只调整当前模型已经启用的自定义值，不把全局列表自动塞进模型能力。 */
+    fun orderExisting(
+        base: Collection<ReasoningEffort>,
+        position: String,
+    ): List<ReasoningEffort> {
+        val custom = base.filter { it.isCustom }
+        val builtIn = base.filterNot { it.isCustom }
+        return if (position == POSITION_FIRST) custom + builtIn else builtIn + custom
+    }
+
+    fun orderExistingWithSavedPlacement(base: Collection<ReasoningEffort>): List<ReasoningEffort> =
+        orderExisting(base, Prefs.customReasoningEffortPosition())
+
     /** 读取本地偏好后合并，供模型能力与设置页共用。 */
     fun withSavedPlacement(base: Collection<ReasoningEffort>): List<ReasoningEffort> = merge(
         base = base,

@@ -252,7 +252,7 @@ class AgentConversationStoreTest {
     }
 
     @Test
-    fun unknownStoredEffortFallsBackToDefault() {
+    fun unknownStoredEffortKeepsCustomValue() {
         runBlocking {
             EtaDatabase.get(context).conversationDao().replaceAll(
                 conversations = listOf(
@@ -274,7 +274,7 @@ class AgentConversationStoreTest {
             .conversationsById
             .getValue("conv-unknown")
 
-        assertEquals(ReasoningEffort.DEFAULT, restored.reasoningEffort)
+        assertEquals(ReasoningEffort("future_effort"), restored.reasoningEffort)
         assertTrue(restored.thinkingEnabled)
     }
 

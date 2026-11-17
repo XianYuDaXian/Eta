@@ -938,7 +938,7 @@ private fun ModelEditDialog(
     val initialCapabilities = if (nativeGemini) GeminiModelCapabilities.resolveReasoning(model)
         else model.effectiveReasoningCapabilities
     val availableEfforts = if (nativeGemini) {
-        GeminiModelCapabilities.configurableEfforts
+        io.github.mangi.eta.config.CustomReasoningEfforts.withSavedPlacement(GeminiModelCapabilities.configurableEfforts)
     } else {
         editableReasoningEfforts()
     }

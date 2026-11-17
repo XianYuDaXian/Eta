@@ -150,8 +150,12 @@ internal object Prefs {
         val raw = runCatching {
             preferences?.getString(Keys.AGENT_DEFAULT_REASONING_EFFORT, null)
         }.getOrNull()
-        val parsed = ReasoningEffort.fromWireValue(raw, allowCustom = false)
-        return if (parsed != null && parsed != ReasoningEffort.OFF) parsed else ReasoningEffort.DEFAULT
+        val parsed = ReasoningEffort.fromWireValue(raw, allowCustom = true)
+        if (parsed == null || parsed == ReasoningEffort.OFF) return ReasoningEffort.DEFAULT
+        if (parsed.isCustom && customReasoningEfforts(preferences).none { it == parsed }) {
+            return ReasoningEffort.DEFAULT
+        }
+        return parsed
     }
 
     /** 读取用户新增的推理强度，保留输入顺序和原始拼写。 */
@@ -289,6 +293,8 @@ internal object Prefs {
                 )
                 updateLocal = true
             }
+        }
+        when {
             local.contains(Keys.AGENT_DISABLED_TOOLS_JSON) -> {
                 remoteEditor.putString(
                     Keys.AGENT_DISABLED_TOOLS_JSON,
