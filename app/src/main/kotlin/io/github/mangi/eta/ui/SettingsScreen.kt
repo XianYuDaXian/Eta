@@ -1708,6 +1708,7 @@ private fun showCustomReasoningEffortDialog(
                                     Toast.makeText(context, "保存失败", Toast.LENGTH_SHORT).show()
                                     return@setPositiveButton
                                 }
+                                Prefs.reconcileAgentPreferences(EtaApp.serviceInstance)
                                 onChanged()
                                 showManager()
                             }
@@ -1726,6 +1727,7 @@ private fun showCustomReasoningEffortDialog(
                                     Toast.makeText(context, "保存失败", Toast.LENGTH_SHORT).show()
                                     return@setItems
                                 }
+                                Prefs.reconcileAgentPreferences(EtaApp.serviceInstance)
                                 onChanged()
                                 showManager()
                             }
@@ -1742,6 +1744,7 @@ private fun showCustomReasoningEffortDialog(
                             Toast.makeText(context, "保存失败", Toast.LENGTH_SHORT).show()
                             return@setItems
                         }
+                        Prefs.reconcileAgentPreferences(EtaApp.serviceInstance)
                         onChanged()
                         showManager()
                     }
